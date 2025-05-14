@@ -1,112 +1,67 @@
 import streamlit as st
 from streamlit_folium import st_folium
 import folium
-import altair as alt
 import pandas as pd
+import altair as alt
+import requests
 
-# === CONFIG ===
-st.set_page_config(layout="wide", page_title="Eucalyptus Land Suitability AI")
+st.set_page_config(layout="wide", page_title="🌿 Eucalyptus AI Dashboard")
+
+# === Style ===
 st.markdown("""
-    <style>
-        .main { background-color: #f9f9f9; }
-        .block-container { padding-top: 1rem; padding-bottom: 1rem; }
-        .stButton>button {
-            color: white;
-            background-color: #4CAF50;
-            border-radius: 8px;
-            padding: 0.5em 1em;
-        }
-    </style>
+<style>
+    .big-title { font-size: 2.5em; font-weight: bold; color: #2E7D32; }
+    .metric-box {
+        border: 1px solid #ddd; padding: 15px;
+        border-radius: 15px; background-color: #f1f8e9;
+        box-shadow: 2px 2px 8px #ccc;
+        text-align: center;
+    }
+</style>
 """, unsafe_allow_html=True)
 
-# === TITLE ===
-st.title("🛰️ Eucalyptus Land Suitability AI Dashboard")
+# === Header ===
+col1, col2 = st.columns([1, 5])
+with col1:
+    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/SCG_Packaging_logo.svg/512px-SCG_Packaging_logo.svg.png", width=80)
+with col2:
+    st.markdown("<div class='big-title'>Eucalyptus Land Suitability AI</div>", unsafe_allow_html=True)
 
-# === SIDEBAR ===
-with st.sidebar:
-    st.header("🔎 เงื่อนไขการค้นหา")
-    province = st.selectbox("📍 เลือกจังหวัด", ["กาญจนบุรี", "ราชบุรี", "ขอนแก่น", "ชัยนาท"])
-    slope = st.slider("⛰️ ความลาดชัน (%)", 0, 30, (0, 15))
-    ndvi = st.slider("🌿 NDVI", 0.0, 1.0, 0.5)
-    st.markdown("---")
-    st.markdown("👈 ปรับค่าทางซ้ายมือ แล้วดูผลบนแผนที่")
+st.markdown("## 🌱 ระบบประเมินพื้นที่ปลูกไม้เศรษฐกิจแบบแม่นยำด้วย AI และภาพถ่ายดาวเทียม")
 
-# === CENTER COORDINATES ===
-center = {
-    "กาญจนบุรี": [14.02, 99.53],
-    "ราชบุรี": [13.53, 99.82],
-    "ขอนแก่น": [16.43, 102.83],
-    "ชัยนาท": [15.18, 100.13]
-}[province]
+# === Animation (Lottie) ===
+lottie_url = "https://assets3.lottiefiles.com/packages/lf20_touohxv0.json"
+lottie_json = requests.get(lottie_url).json()
+st.components.v1.html(f"""
+<div style="width:150px; margin:auto;">
+    <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+    <lottie-player src="{lottie_url}" background="transparent" speed="1" style="width: 150px; height: 150px;" loop autoplay></lottie-player>
+</div>
+""", height=160)
 
-# === MAPTILER ===
-MAPTILER_API_KEY = "sBsPycUuqDYYrp3htoRi"  # ✅ ใส่ API key จริง
-m = folium.Map(
-    location=center,
-    zoom_start=9,
-    tiles=f"https://api.maptiler.com/maps/hybrid/256/{{z}}/{{x}}/{{y}}.jpg?key={MAPTILER_API_KEY}",
-    attr='MapTiler Satellite',
-)
-
-# === MARKER MOCK ===
-folium.Marker(
-    location=center,
-    popup=f"พื้นที่เหมาะสมใน {province}",
-    icon=folium.Icon(color="green", icon="ok-sign")
-).add_to(m)
-folium.LayerControl().add_to(m)
-
-# === SHOW MAP ===
-st.markdown("## 🗺️ แผนที่พื้นที่เป้าหมาย")
-st_data = st_folium(m, width=1200, height=600)
-
-# === ON-CLICK ===
-if st_data.get("last_clicked"):
-    latlon = st_data["last_clicked"]
-    st.success(f"📍 คุณคลิกที่พิกัด: ({latlon['lat']:.4f}, {latlon['lng']:.4f})")
-
-# === SUMMARY ===
-st.markdown("## 📊 สรุปเบื้องต้น")
+# === Summary Cards ===
 col1, col2, col3 = st.columns(3)
-col1.metric("จังหวัด", province)
-col2.metric("พื้นที่เป้าหมาย", "ประมาณ 7,500 ไร่")
-col3.metric("Suitability Score", "83")
+with col1: st.markdown("<div class='metric-box'><h4>Suitability</h4><h2>84</h2></div>", unsafe_allow_html=True)
+with col2: st.markdown("<div class='metric-box'><h4>พื้นที่เป้าหมาย</h4><h2>7,500 ไร่</h2></div>", unsafe_allow_html=True)
+with col3: st.markdown("<div class='metric-box'><h4>จังหวัด</h4><h2>กาญจนบุรี</h2></div>", unsafe_allow_html=True)
 
-# === CHART SECTION ===
-st.markdown("## 📈 การวิเคราะห์พื้นที่")
+# === Map ===
+st.markdown("### 🗺️ แผนที่พื้นที่เหมาะสม")
+m = folium.Map(
+    location=[14.02, 99.53],
+    zoom_start=8,
+    tiles="https://api.maptiler.com/maps/hybrid/256/{z}/{x}/{y}.jpg?key=sBsPycUuqDYYrp3htoRi",
+    attr="MapTiler"
+)
+folium.Marker([14.02, 99.53], popup="พื้นที่เป้าหมาย", icon=folium.Icon(color="green")).add_to(m)
+st_data = st_folium(m, width=1100, height=500)
 
-data = pd.DataFrame({
+# === Chart ===
+st.markdown("### 📊 พื้นที่เป้าหมายเปรียบเทียบ")
+df = pd.DataFrame({
     "จังหวัด": ["กาญจนบุรี", "ราชบุรี", "ขอนแก่น", "ชัยนาท"],
-    "พื้นที่ (ไร่)": [7500, 6400, 8300, 5900],
-    "คะแนนความเหมาะสม": [83, 76, 88, 72]
+    "พื้นที่ (ไร่)": [7500, 6400, 8300, 5900]
 })
-
-# === Bar Chart ===
-bar = alt.Chart(data).mark_bar(cornerRadiusTopLeft=5, cornerRadiusTopRight=5).encode(
-    x=alt.X('จังหวัด', sort='-y'),
-    y='พื้นที่ (ไร่)',
-    color=alt.Color('จังหวัด', legend=None)
-).properties(
-    title="พื้นที่เป้าหมายแต่ละจังหวัด",
-    width=500,
-    height=300
-)
-
-# === Pie Chart ===
-pie_data = data.copy()
-pie_data["สัดส่วน"] = pie_data["พื้นที่ (ไร่)"] / pie_data["พื้นที่ (ไร่)"].sum()
-pie = alt.Chart(pie_data).mark_arc(innerRadius=40).encode(
-    theta=alt.Theta(field="สัดส่วน", type="quantitative"),
-    color=alt.Color(field="จังหวัด", type="nominal"),
-    tooltip=["จังหวัด", "พื้นที่ (ไร่)"]
-).properties(
-    title="สัดส่วนพื้นที่เป้าหมาย",
-    width=300,
-    height=300
-)
-
-# === Show Charts ===
-col1, col2 = st.columns(2)
-col1.altair_chart(bar, use_container_width=True)
-col2.altair_chart(pie, use_container_width=True)
+chart = alt.Chart(df).mark_bar().encode(x="จังหวัด", y="พื้นที่ (ไร่)", color="จังหวัด").properties(height=300)
+st.altair_chart(chart, use_container_width=True)
 
