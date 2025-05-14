@@ -1,3 +1,9 @@
+import ee
+from google.oauth2 import service_account
+
+SERVICE_ACCOUNT = 'sftdemo@tidy-daylight-459410-a4.iam.gserviceaccount.com'
+credentials = ee.ServiceAccountCredentials(SERVICE_ACCOUNT, 'credentials.json')
+ee.Initialize(credentials)
 
 import streamlit as st
 import geemap.foliumap as geemap
