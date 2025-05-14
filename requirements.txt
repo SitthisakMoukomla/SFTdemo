@@ -1,7 +1,5 @@
 streamlit
-geemap
-folium
 streamlit-folium
-geopandas
-earthengine-api
-google-auth
+folium
+altair
+pandas
