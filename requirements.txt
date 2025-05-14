@@ -3,4 +3,5 @@ geemap
 folium
 streamlit-folium
 geopandas
-setuptools>=65.5.0
+earthengine-api
+google-auth
