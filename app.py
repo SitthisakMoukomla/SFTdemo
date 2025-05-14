@@ -5,8 +5,14 @@ from streamlit_folium import st_folium
 from google.oauth2 import service_account
 
 # === GEE Initialization with Service Account ===
-SERVICE_ACCOUNT = 'sftdemo@tidy-daylight-459410-a4.iam.gserviceaccount.com'
-credentials = ee.ServiceAccountCredentials(SERVICE_ACCOUNT, 'credentials.json')
+import ee
+import streamlit as st
+import json
+from google.oauth2 import service_account
+
+SERVICE_ACCOUNT = st.secrets["SERVICE_ACCOUNT"]
+credentials_dict = json.loads(st.secrets["CREDENTIALS_JSON"])
+credentials = service_account.Credentials.from_service_account_info(credentials_dict)
 ee.Initialize(credentials)
 
 # === CONFIG ===
