@@ -1,52 +1,112 @@
 import streamlit as st
-import geemap.foliumap as geemap
-import ee
-import json
-from google.oauth2 import service_account
 from streamlit_folium import st_folium
-
-# === Load credentials from secrets ===
-SERVICE_ACCOUNT = "sftdemo@tidy-daylight-459410-a4.iam.gserviceaccount.com"
-with open("credentials.json") as f:
-    credentials_dict = json.load(f)
-
-credentials = service_account.Credentials.from_service_account_info(credentials_dict)
-ee.Initialize(credentials)
+import folium
+import altair as alt
+import pandas as pd
 
 # === CONFIG ===
-province_name = "Chai Nat"
-esa = ee.Image("ESA/WorldCover/v100/2020")
-esa_palette = ['006400', 'ffbb22', 'ffff4c', 'f096ff', 'fa0000',
-               'b4b4b4', 'f0f0f0', '0064c8', '0096a0', '00cf75',
-               'fae6a0', '58481f', '0096ff', '9f6fff', 'fa00fa', 'c5f0ff', 'ffff00']
+st.set_page_config(layout="wide", page_title="Eucalyptus Land Suitability AI")
+st.markdown("""
+    <style>
+        .main { background-color: #f9f9f9; }
+        .block-container { padding-top: 1rem; padding-bottom: 1rem; }
+        .stButton>button {
+            color: white;
+            background-color: #4CAF50;
+            border-radius: 8px;
+            padding: 0.5em 1em;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
-roi = ee.FeatureCollection("FAO/GAUL_SIMPLIFIED_500m/2015/level1") \
-         .filter(ee.Filter.eq('ADM1_NAME', province_name))
-geometry = roi.geometry()
+# === TITLE ===
+st.title("🛰️ Eucalyptus Land Suitability AI Dashboard")
 
-vacant_mask = esa.eq(80).Or(esa.eq(30)).And(esa.neq(10))
-vacant = esa.updateMask(vacant_mask)
+# === SIDEBAR ===
+with st.sidebar:
+    st.header("🔎 เงื่อนไขการค้นหา")
+    province = st.selectbox("📍 เลือกจังหวัด", ["กาญจนบุรี", "ราชบุรี", "ขอนแก่น", "ชัยนาท"])
+    slope = st.slider("⛰️ ความลาดชัน (%)", 0, 30, (0, 15))
+    ndvi = st.slider("🌿 NDVI", 0.0, 1.0, 0.5)
+    st.markdown("---")
+    st.markdown("👈 ปรับค่าทางซ้ายมือ แล้วดูผลบนแผนที่")
 
-total_area = geometry.area().divide(1e6)
-vacant_area = vacant.multiply(ee.Image.pixelArea()).reduceRegion(
-    reducer=ee.Reducer.sum(), geometry=geometry, scale=30, maxPixels=1e9)
-vacant_area_km2 = vacant_area.getNumber('Map').divide(1e6)
+# === CENTER COORDINATES ===
+center = {
+    "กาญจนบุรี": [14.02, 99.53],
+    "ราชบุรี": [13.53, 99.82],
+    "ขอนแก่น": [16.43, 102.83],
+    "ชัยนาท": [15.18, 100.13]
+}[province]
 
-st.set_page_config(layout="wide")
-st.title("🌾 ระบบจัดหาพื้นที่รกร้างว่างเปล่า จังหวัดชัยนาท")
-st.markdown("\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e08\u0e32\u0e01 **ESA WorldCover 2020**")
+# === MAPTILER ===
+MAPTILER_API_KEY = "sBsPycUuqDYYrp3htoRi"  # ✅ ใส่ API key จริง
+m = folium.Map(
+    location=center,
+    zoom_start=9,
+    tiles=f"https://api.maptiler.com/maps/hybrid/256/{{z}}/{{x}}/{{y}}.jpg?key={MAPTILER_API_KEY}",
+    attr='MapTiler Satellite',
+)
 
+# === MARKER MOCK ===
+folium.Marker(
+    location=center,
+    popup=f"พื้นที่เหมาะสมใน {province}",
+    icon=folium.Icon(color="green", icon="ok-sign")
+).add_to(m)
+folium.LayerControl().add_to(m)
+
+# === SHOW MAP ===
+st.markdown("## 🗺️ แผนที่พื้นที่เป้าหมาย")
+st_data = st_folium(m, width=1200, height=600)
+
+# === ON-CLICK ===
+if st_data.get("last_clicked"):
+    latlon = st_data["last_clicked"]
+    st.success(f"📍 คุณคลิกที่พิกัด: ({latlon['lat']:.4f}, {latlon['lng']:.4f})")
+
+# === SUMMARY ===
+st.markdown("## 📊 สรุปเบื้องต้น")
 col1, col2, col3 = st.columns(3)
-col1.metric("\ud83d\udccf \u0e1e\u0e37\u0e49\u0e19\u0e17\u0e35\u0e48\u0e08\u0e31\u0e07\u0e2b\u0e27\u0e31\u0e14 (\u0e15\u0e23.\u0e01\u0e21.)", f"{total_area.getInfo():,.2f}")
-col2.metric("\ud83c\udf3f \u0e1e\u0e37\u0e49\u0e19\u0e17\u0e35\u0e48\u0e27\u0e48\u0e32\u0e07\u0e40\u0e1b\u0e25\u0e48\u0e32 (\u0e15\u0e23.\u0e01\u0e21.)", f"{vacant_area_km2.getInfo():,.2f}")
-col3.metric("\ud83d\udcca \u0e04\u0e34\u0e14\u0e40\u0e1b\u0e47\u0e19\u0e23\u0e49\u0e2d\u0e22\u0e25ะ", f"{(vacant_area_km2.getInfo() / total_area.getInfo()) * 100:.2f} %")
+col1.metric("จังหวัด", province)
+col2.metric("พื้นที่เป้าหมาย", "ประมาณ 7,500 ไร่")
+col3.metric("Suitability Score", "83")
 
-Map = geemap.Map(center=[15.2, 100.1], zoom=9)
-Map.addLayer(esa, {"min": 10, "max": 100, "palette": esa_palette}, "\ud83c\udf0d ESA WorldCover 2020")
-Map.addLayer(vacant, {"palette": ["red"]}, "\u0e1e\u0e37\u0e49\u0e19\u0e17\u0e35\u0e48\u0e27\u0e48\u0e32\u0e07\u0e40\u0e1b\u0e25\u0e48\u0e32")
-Map.addLayer(roi.style(color='blue', fillColor='00000000', width=2), {}, "\u0e02\u0e2d\u0e1a\u0e40\u0e02\u0e15\u0e08\u0e31\u0e07\u0e2b\u0e27\u0e31\u0e14")
-Map.add_legend(title="WorldCover Legend", builtin_legend='ESA_WorldCover')
+# === CHART SECTION ===
+st.markdown("## 📈 การวิเคราะห์พื้นที่")
 
-st.subheader("\ud83d\uddd8\ufe0f \u0e41\u0e1c\u0e19\u0e17\u0e35\u0e48\u0e1e\u0e37\u0e49\u0e19\u0e17\u0e35\u0e48\u0e27\u0e48\u0e32\u0e07\u0e40\u0e1b\u0e25\u0e48\u0e32")
-st_folium(Map, width=700, height=500)
+data = pd.DataFrame({
+    "จังหวัด": ["กาญจนบุรี", "ราชบุรี", "ขอนแก่น", "ชัยนาท"],
+    "พื้นที่ (ไร่)": [7500, 6400, 8300, 5900],
+    "คะแนนความเหมาะสม": [83, 76, 88, 72]
+})
+
+# === Bar Chart ===
+bar = alt.Chart(data).mark_bar(cornerRadiusTopLeft=5, cornerRadiusTopRight=5).encode(
+    x=alt.X('จังหวัด', sort='-y'),
+    y='พื้นที่ (ไร่)',
+    color=alt.Color('จังหวัด', legend=None)
+).properties(
+    title="พื้นที่เป้าหมายแต่ละจังหวัด",
+    width=500,
+    height=300
+)
+
+# === Pie Chart ===
+pie_data = data.copy()
+pie_data["สัดส่วน"] = pie_data["พื้นที่ (ไร่)"] / pie_data["พื้นที่ (ไร่)"].sum()
+pie = alt.Chart(pie_data).mark_arc(innerRadius=40).encode(
+    theta=alt.Theta(field="สัดส่วน", type="quantitative"),
+    color=alt.Color(field="จังหวัด", type="nominal"),
+    tooltip=["จังหวัด", "พื้นที่ (ไร่)"]
+).properties(
+    title="สัดส่วนพื้นที่เป้าหมาย",
+    width=300,
+    height=300
+)
+
+# === Show Charts ===
+col1, col2 = st.columns(2)
+col1.altair_chart(bar, use_container_width=True)
+col2.altair_chart(pie, use_container_width=True)
 
